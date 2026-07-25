@@ -1,0 +1,68 @@
+{
+    "lgbm_weight":  0.1,
+    "transformers":  [
+                         {
+                             "dir":  "tf_s77",
+                             "weight":  0.45,
+                             "temp":  0.28,
+                             "max_len":  512,
+                             "ser":  "v2"
+                         },
+                         {
+                             "dir":  "tf_s7",
+                             "weight":  0.25,
+                             "weight_when_gate_missing":  0.45,
+                             "temp":  0.28,
+                             "max_len":  512,
+                             "ser":  "v3"
+                         },
+                         {
+                             "dir":  "tf_s99",
+                             "weight":  0.2,
+                             "temp":  0.28,
+                             "max_len":  512,
+                             "ser":  "v2",
+                             "gate":  "disagreement"
+                         },
+                         {
+                             "dir":  "tf_s123",
+                             "weight":  0.15,
+                             "temp":  0.28,
+                             "max_len":  512,
+                             "ser":  "v3",
+                             "gate":  "disagreement_consensus"
+                         }
+                     ],
+    "scale":  [
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0,
+                  1.0
+              ],
+    "lgbm_scale":  [
+                       0.8,
+                       1.0,
+                       1.1,
+                       0.8,
+                       0.8,
+                       1.1,
+                       1.0,
+                       0.9,
+                       1.0,
+                       1.0,
+                       1.0,
+                       1.0,
+                       1.75,
+                       1.0
+                   ]
+}

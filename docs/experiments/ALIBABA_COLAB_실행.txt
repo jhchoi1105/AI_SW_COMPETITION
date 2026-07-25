@@ -1,0 +1,171 @@
+Alibaba Colab 실행 설명서 (새 노트북 / Tesla T4)
+================================================
+
+먼저 Colab 위쪽 메뉴에서 다음과 같이 설정합니다.
+
+런타임 > 런타임 유형 변경 > 하드웨어 가속기 GPU
+
+그다음 아래 셀 4개를 위에서부터 한 번씩 실행하세요.
+
+
+셀 1. Google Drive 연결
+-----------------------
+
+from google.colab import drive
+drive.mount('/content/drive')
+
+권한 창이 나오면 허용합니다.
+
+
+셀 2. alibaba_colab.zip 업로드
+--------------------------------
+
+import os
+import zipfile
+from google.colab import files
+
+os.chdir('/content')
+uploaded = files.upload()
+zip_name = next(name for name in uploaded if name.lower().endswith('.zip'))
+
+with zipfile.ZipFile(zip_name) as z:
+    z.extractall('/content')
+
+os.chdir('/content/alibaba_colab')
+print('준비 완료:', os.getcwd())
+
+파일 선택창에서 이 컴퓨터의 alibaba_colab.zip을 선택합니다.
+정상이라면 '준비 완료: /content/alibaba_colab'이라고 나옵니다.
+
+
+셀 3. 프로그램 설치 및 GPU 확인
+--------------------------------
+
+!pip install -q "transformers==4.46.3" sentencepiece scikit-learn accelerate einops
+!nvidia-smi --query-gpu=name,memory.total --format=csv
+
+Gradio dependency conflict 경고는 무시해도 됩니다.
+GPU 이름이 Tesla T4인지 확인합니다.
+
+
+셀 4. Alibaba 모델 학습 시작
+-----------------------------
+
+!python scripts/train_strategy_c2.py --model Alibaba-NLP/gte-multilingual-mlm-base --epochs 2 --batch 8 --max-len 512 --lr 6e-6 --seed 7 --ser v2 --full --fp16 --gradient-checkpointing --trust-remote-code --out /content/drive/MyDrive/alibaba_v2_full 2>&1 | tee /content/drive/MyDrive/alibaba_v2_full.log
+
+
+정상 진행 확인
+--------------
+
+처음에는 모델 다운로드와 데이터 처리 때문에 몇 분 동안 숫자가 안 나올 수 있습니다.
+아래와 비슷한 줄이 나오면 정상입니다.
+
+ep0 400/8750 loss=...
+
+학습이 끝나면 Google Drive의 내 드라이브에 다음 결과가 생깁니다.
+
+alibaba_v2_full
+alibaba_v2_full.log
+
+학습이 끝날 때까지 Colab 탭을 닫지 마세요.
+
+
+================================================
+이미 완료된 2에폭에서 추가로 2에폭 이어서 학습하기
+================================================
+
+기존 Colab 세션에서 아래 셀을 순서대로 실행합니다.
+기존 `alibaba_v2_full` 폴더는 덮어쓰지 않습니다.
+
+
+추가 셀 1. 위치와 기존 체크포인트 확인
+----------------------------------------
+
+import os
+
+os.chdir('/content/alibaba_colab')
+checkpoint = '/content/drive/MyDrive/alibaba_v2_full'
+assert os.path.exists(checkpoint + '/model.safetensors'), '기존 Alibaba 체크포인트가 없습니다.'
+print('이어 학습 준비 완료:', checkpoint)
+
+
+추가 셀 1-1. Alibaba 사용자 코드 로컬 통일 (오류 방지, 필수)
+-------------------------------------------------------------
+
+import os
+import json
+import shutil
+from huggingface_hub import hf_hub_download
+
+REVISION = '40ced75c3017eb27626c9d4ea981bde21a2662f4'
+
+def localize_alibaba_checkpoint(checkpoint):
+    # 설정 코드와 모델 코드를 같은 체크포인트 폴더에서 읽도록 통일합니다.
+    for filename in ['configuration.py', 'modeling.py']:
+        source = hf_hub_download(
+            repo_id='Alibaba-NLP/new-impl',
+            filename=filename,
+            revision=REVISION,
+        )
+        shutil.copy2(source, os.path.join(checkpoint, filename))
+
+    config_path = os.path.join(checkpoint, 'config.json')
+    with open(config_path, encoding='utf-8') as f:
+        config = json.load(f)
+
+    config['auto_map'] = {
+        'AutoConfig': 'configuration.NewConfig',
+        'AutoModel': 'modeling.NewModel',
+        'AutoModelForMaskedLM': 'modeling.NewForMaskedLM',
+        'AutoModelForMultipleChoice': 'modeling.NewForMultipleChoice',
+        'AutoModelForQuestionAnswering': 'modeling.NewForQuestionAnswering',
+        'AutoModelForSequenceClassification': 'modeling.NewForSequenceClassification',
+        'AutoModelForTokenClassification': 'modeling.NewForTokenClassification',
+    }
+    with open(config_path, 'w', encoding='utf-8') as f:
+        json.dump(config, f, ensure_ascii=False, indent=2)
+
+    # 앞서 서로 다르게 로드된 사용자 코드 캐시를 제거합니다.
+    cache_dir = os.path.join(
+        '/root/.cache/huggingface/modules/transformers_modules',
+        os.path.basename(checkpoint),
+    )
+    shutil.rmtree(cache_dir, ignore_errors=True)
+    print('사용자 코드 통일 완료:', checkpoint)
+
+localize_alibaba_checkpoint('/content/drive/MyDrive/alibaba_v2_full')
+
+
+추가 셀 2. 세 번째 에폭 실행 (추가 1에폭)
+-------------------------------------------
+
+!python scripts/train_strategy_c2.py --model /content/drive/MyDrive/alibaba_v2_full --epochs 1 --batch 8 --max-len 512 --lr 2e-6 --seed 9 --ser v2 --full --fp16 --gradient-checkpointing --trust-remote-code --out /content/drive/MyDrive/alibaba_v2_ep3 2>&1 | tee /content/drive/MyDrive/alibaba_v2_ep3.log
+
+이 셀이 완전히 끝나서 아래 문구가 나온 뒤에 다음 셀을 실행합니다.
+
+저장 완료: /content/drive/MyDrive/alibaba_v2_ep3
+
+
+추가 셀 2-1. 세 번째 에폭 체크포인트 코드 통일
+------------------------------------------------
+
+localize_alibaba_checkpoint('/content/drive/MyDrive/alibaba_v2_ep3')
+
+
+추가 셀 3. 네 번째 에폭 실행 (추가 2에폭)
+-------------------------------------------
+
+!python scripts/train_strategy_c2.py --model /content/drive/MyDrive/alibaba_v2_ep3 --epochs 1 --batch 8 --max-len 512 --lr 1e-6 --seed 10 --ser v2 --full --fp16 --gradient-checkpointing --trust-remote-code --out /content/drive/MyDrive/alibaba_v2_ep4 2>&1 | tee /content/drive/MyDrive/alibaba_v2_ep4.log
+
+
+완료 후 Google Drive에 남는 결과
+---------------------------------
+
+alibaba_v2_full      : 기존 2에폭 결과 (보존)
+alibaba_v2_ep3       : 추가 1에폭 결과
+alibaba_v2_ep4       : 추가 2에폭 결과
+alibaba_v2_ep3.log   : 세 번째 에폭 로그
+alibaba_v2_ep4.log   : 네 번째 에폭 로그
+
+두 번째 명령은 첫 번째 명령이 완전히 끝난 후 실행해야 합니다.
+중간에 세션이 끊겨도 완성된 이전 폴더는 Google Drive에 그대로 남습니다.

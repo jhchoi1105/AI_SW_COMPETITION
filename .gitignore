@@ -1,0 +1,11 @@
+/release_assets/*.zip
+/source/data/*.jsonl
+/source/data/*.csv
+/source/work/
+__pycache__/
+*.py[cod]
+*.safetensors
+*.bin
+*.npy
+*.joblib
+.hf_cache/

@@ -1,0 +1,7 @@
+scikit-learn==1.8.0
+joblib==1.5.3
+lightgbm==4.6.0
+torch
+transformers==5.9.0
+tokenizers==0.22.2
+safetensors>=0.4.3
