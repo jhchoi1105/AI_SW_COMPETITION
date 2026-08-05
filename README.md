@@ -62,6 +62,7 @@ RTX 4060 기준 약 21시간이 필요합니다. 대회 데이터는 재배포�
 - [발표 자료](docs/presentation/발표_정리.md)
 - [발표 대본](docs/presentation/발표_대본.md)
 - [발표 공부 노트](docs/presentation/발표_공부노트.md) — 용어 사전부터 Q&A까지 발표자 학습용
+  ([인쇄용 PDF](docs/presentation/발표_공부노트.pdf), A4 28쪽)
 - [포스터 세션 초안](docs/presentation/포스터_초안.md) — 포스터 1장 문안과 배치
 
 별도 라이선스는 지정하지 않았으며, 대회 데이터와 사전학습 모델은 원래 이용 조건을 따릅니다.
